@@ -3,27 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
     <title>Doodle Jump</title>
 </head>
 <body>
-    <div class="game">
-        <div class="game-items">
+    <div class="game" style="display:grid;grid-template-columns: auto auto auto auto auto;">
+        <div>
             <h1 id="DedMsg" style="display:none">T'es mort</h1> 
-            <canvas id="doodle_jump" style="display:none" width="480" height="768"></canvas>
+            <canvas id="doodle_jump" width="160" height="256"></canvas>
             <p id="score" style="display:none" ></p> 
         </div>  
+        <div>
+            <h1 id="DedMsg2" style="display:none">T'es mort</h1> 
+            <canvas id="doodle_jump2" width="160" height="256"></canvas>
+        </div>
+        <div>
+            <h1 id="DedMsg3" style="display:none">T'es mort</h1> 
+            <canvas id="doodle_jump3" width="160" height="256"></canvas>
+        </div>
+        <div>
+            <h1 id="DedMsg4" style="display:none">T'es mort</h1> 
+            <canvas id="doodle_jump4" width="160" height="256"></canvas>
+        </div>
+        <div>
+            <h1 id="DedMsg5" style="display:none">T'es mort</h1> 
+            <canvas id="doodle_jump5" width="160" height="256"></canvas>
+        </div>
         
     </div>
-    <button id="start" onclick="start()">Start</button>
-
+    <p id="test"></p>
     <script>
         var score = 0;
-        var width = 480;
-        var height = 768;
+        var width = 160;
+        var height = 256;
         var platformCount = 15;
         var play = false;
-        var AI = false;
+        var AI = true;
 
 
         // Fonction d'activation (Sigmoïde)
@@ -31,10 +45,6 @@
             return 1 / (1 + Math.exp(-x));
         }
 
-        // Dérivée de la fonction sigmoïde
-        function sigmoidDerivative(x) {
-            return x * (1 - x);
-        }
 
         // Multiplier deux matrices
         function matrixMultiply(a, b) {
@@ -125,15 +135,13 @@
 
 
 
-        function start(){
+        /*function start(){
             document.getElementById("start").style.display = "none"
             document.getElementById("doodle_jump").style ="border-radius: 25px; display: flex; flex-align: center"
             document.getElementById('score').style.display = "block"
             play = true
-            const app = new Controller(new Model(), new View());
-            app.setView();
-            app.Update();
-        }
+            
+        }*/
 
         class Platform{
             constructor(x, y){
@@ -141,8 +149,8 @@
                 let mid = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3];
                 let hard = [2, 2, 2, 3, 3, 3, 3, 3];
 
-                this.width = 57;
-                this.height = 17;
+                this.width = 18;
+                this.height = 6;
                 this.x = x
                 this.y = y
        
@@ -165,15 +173,15 @@
             moveHorizontaly(fps){
                 if(this.type === 2){
                     let vx = 100;
-                    if (this.x < 0 || this.x + this.width > 480) 
+                    if (this.x < 0 || this.x + this.width > 160) 
                         this.direction *= -1;
 				    this.x += this.direction * vx/fps;
                 }
             }
 
             collider(position){
-                if((this.x < position.x+15 && position.x+15 < this.x+this.width) || (this.x < position.x+50 && position.x+50 < this.x+this.width))
-                    if(this.y < position.y+62 && position.y+62 < this.y+this.height){
+                if((this.x < position.x+5 && position.x+5< this.x+this.width) || (this.x < position.x+16 && position.x+16 < this.x+this.width))
+                    if(this.y < position.y+21 && position.y+21 < this.y+this.height){
                         return true
                     }
                 return false
@@ -183,20 +191,22 @@
         }
 
         class Model {
-            static GRAVITY    = 15;
-            static JUMP_FORCE = 600;
-            static SPEED      = 200;
-            static width = 480;
-            static height = 768;
+            static GRAVITY    = 5;
+            static JUMP_FORCE = 200;
+            static SPEED      = 68;
+            static width = 160;
+            static height = 256;
             static isDead = 0;
 
-            constructor() {
+            constructor(dedMsg) {
                 this._direction = 0;                
                 this._gravitySpeed = 0;
-                this._position = {x: 200, y:600};
+                this._position = {x: 70, y:200};
                 this.ai = new NeuralNetwork(6, [8, 5], 3);
                 this.input = [0.5, 0.8, 0.2, 0.9, 0.1, 0.4];
+                this.DOMdedMsg = dedMsg
                 this.cmp_inactivity = 0;
+
 
                 this.platforms = [];
                 this.platforms.push(new Platform(this._position.x, this._position.y + 47))
@@ -229,7 +239,7 @@
                     res.push(this.distance(i))
                 }
                     
-                res = res.sort((a,b) => a < b)
+                res = res.sort((a,b) => a > b)
                 return res
             }
 
@@ -246,16 +256,13 @@
                     this._position.x += this._direction * Model.SPEED / fps;
                 }
 
-                if(this._position.y > 768){
+                if(this._position.y > 256){
                     this.ded();
                 }
-
+                let oldScore = score;
                 if (this.collidePlatform(fps) ) {
                     this._Jump();
                 }
-
-                let oldScore = score;
-                
 
                 if(this._position.y <= height/2 && play){
                     this.scrollUp(this._position);
@@ -263,9 +270,10 @@
                 
                 if(oldScore == score)
                     this.cmp_inactivity++
-                //console.log("inactivity", this.cmp_inactivity)
+                //console.log("inactivity", this.DOMdedMsg, this.cmp_inactivity)
                 if(this.cmp_inactivity >= 1000)
                     this.ded()
+
 
                 this.platforms = this.platforms.filter(e => e.display)
                 this.b_Display(this._position, this.platforms);
@@ -287,7 +295,7 @@
                 }
                 if(offset > 0){
                     score++;
-                    this.cmp_inactivity = 0;
+                    this.cmp_inactivity = 0
                 }
 
                 if (score == 5000) {
@@ -319,8 +327,11 @@
 
             ded(){
                 this.isDead = true
-                let dedMsg = document.getElementById('DedMsg')
+                let dedMsg = document.getElementById(this.DOMdedMsg)
                 dedMsg.style.display = "flex";
+                //console.log("weight", this.DOMdedMsg, this.ai.weights)
+                let test = document.getElementById("test")
+                test.innerText += this.DOMdedMsg+ " " + JSON.stringify(this.ai.weights) + "\n"
             }
 
             AIplay(){
@@ -331,7 +342,7 @@
                 this.input[3] = dist[3];
                 this.input[4] = this._position.x;
                 this.input[5] = this._position.y;
-                console.log(this.input)
+                //console.log(this.input)
                 let res = this.indexOfMax(this.ai.feedforward(this.input))
                 switch(res){
                     case 1:
@@ -344,7 +355,7 @@
                         this._direction = 0
                         break
                 }
-                console.log("ai :", res);
+                //console.log("ai :", res);
             }
 
             indexOfMax(arr) {
@@ -359,8 +370,8 @@
 
 
         class View {
-            constructor() {
-                this._canvas = document.getElementById('doodle_jump')
+            constructor(canvas) {
+                this._canvas = document.getElementById(canvas)
                 this.ctx     = this._canvas.getContext('2d')
                 this._hold_right = false
                 this._hold_left = false
@@ -461,9 +472,9 @@
             DisplayPlayer(position){
                 let buff = this.b_GetDirection() ? this.b_GetDirection() : this.lastDirection;
                 if(buff > 0)
-                    this.ctx.drawImage(this.right, position.x, position.y, 62,60)
+                    this.ctx.drawImage(this.right, position.x, position.y, 21,20)
                 else
-                    this.ctx.drawImage(this.left, position.x, position.y, 62,60)
+                    this.ctx.drawImage(this.left, position.x, position.y, 21,20)
             }
 
             DisplayPlatform(p){
@@ -540,6 +551,36 @@
                     
             }
         }
+
+        const app = new Controller(new Model('DedMsg'), new View('doodle_jump'));
+        app.setView();
+        app.Update();
+        const app2 = new Controller(new Model('DedMsg2'), new View('doodle_jump2'));
+        app2.setView();
+        app2.Update();
+        const app3 = new Controller(new Model('DedMsg3'), new View('doodle_jump3'));
+        app3.setView();
+        app3.Update();
+        const app4 = new Controller(new Model('DedMsg4'), new View('doodle_jump4'));
+        app4.setView();
+        app4.Update();
+        const app5 = new Controller(new Model('DedMsg5'), new View('doodle_jump5'));
+        app5.setView();
+        app5.Update();
+        let POPULATION = []
+        
+
+        /*function ratio(){
+            while(true){
+                if(POPULATION.length >= 5){
+                    console.log("Tous morts")
+                    return;
+                }
+            }
+        }
+
+        ratio();*/
+        
 
         
     </script>
