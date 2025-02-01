@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Doodle Jump</title>
+</head>
+<body>
+    <div class="game">
+        <div class="game-items">
+            <h1 id="DedMsg" style="display:none">T'es mort</h1> 
+            <canvas id="doodle_jump" style="display:none" width="480" height="768"></canvas>
+            <p id="score" style="display:none" ></p> 
+        </div>  
+        
+    </div>
+    <button id="start" onclick="start()">Start</button>
+
+    <script>
+        var score = 0;
+        var width = 480;
+        var height = 768;
+        var platformCount = 15;
+        var play = false;
+        var AI = false;
+
+
+        // Fonction d'activation (Sigmoïde)
+        function sigmoid(x) {
+            return 1 / (1 + Math.exp(-x));
+        }
+
+        // Dérivée de la fonction sigmoïde
+        function sigmoidDerivative(x) {
+            return x * (1 - x);
+        }
+
+        // Multiplier deux matrices
+        function matrixMultiply(a, b) {
+            const result = [];
+            for (let i = 0; i < a.length; i++) {
+                result[i] = [];
+                for (let j = 0; j < b[0].length; j++) {
+                    let sum = 0;
+                    for (let k = 0; k < b.length; k++) {
+                        sum += a[i][k] * b[k][j];
+                    }
+                    result[i][j] = sum;
+                }
+            }
+            return result;
+        }
+
+        // Ajouter un biais à un vecteur ou une matrice
+        function addBias(matrix, bias) {
+            let res = []
+            //return matrix.map((row, i) => row.map((value, j) => value + (bias[j] || 0)));
+            for(let i = 0; i < matrix.length; i++){
+                res.push(matrix[i]+bias[i])
+            }
+            return res
+        }
+
+        // Initialiser un réseau de neurones feedforward
+        class NeuralNetwork {
+            constructor(inputSize, hiddenSizes, outputSize) {
+                this.inputSize = inputSize;
+                this.hiddenSizes = hiddenSizes;
+                this.outputSize = outputSize;
+
+                // Initialisation des poids et biais
+                this.weights = [];
+                this.biases = [];
+
+                // Poids entre l'entrée et la première couche cachée
+                this.weights.push(this.randomMatrix(inputSize, hiddenSizes[0]));
+                this.biases.push(Array(hiddenSizes[0]).fill(0));
+
+                // Poids entre les couches cachées
+                for (let i = 0; i < hiddenSizes.length - 1; i++) {
+                    this.weights.push(this.randomMatrix(hiddenSizes[i], hiddenSizes[i + 1]));
+                    this.biases.push(Array(hiddenSizes[i + 1]).fill(0));
+                }
+
+                // Poids entre la dernière couche cachée et la sortie
+                this.weights.push(this.randomMatrix(hiddenSizes[hiddenSizes.length - 1], outputSize));
+                this.biases.push(Array(outputSize).fill(0));
+            }
+
+            // Générer une matrice aléatoire
+            randomMatrix(rows, cols) {
+                const matrix = [];
+                for (let i = 0; i < rows; i++) {
+                    matrix[i] = [];
+                    for (let j = 0; j < cols; j++) {
+                        matrix[i][j] = Math.random() * 2 - 1; // Valeurs entre -1 et 1
+                    }
+                }
+                return matrix;
+            }
+
+            // Feedforward
+            feedforward(inputVector) {
+                if (inputVector.length !== this.inputSize) {
+                    throw new Error(`La taille de l'entrée (${inputVector.length}) ne correspond pas à la taille d'entrée attendue (${this.inputSize}).`);
+                }
+
+                let activations = [inputVector];
+                //console.log("activation", activations)
+                for (let i = 0; i < this.weights.length; i++) {
+                    
+                    let weightedSum = matrixMultiply([activations[i]], this.weights[i]).flat(); // Produit matriciel
+                    
+                    weightedSum = addBias(weightedSum, this.biases[i]); // Ajout des biais
+                    
+                    const activation = weightedSum.map(sigmoid); // Activation via sigmoïde
+                    
+                    activations.push(activation);
+                }
+
+                return activations[activations.length - 1]; // Dernière couche (sortie)
+            }
+        }
+
+
+
+        function start(){
+            document.getElementById("start").style.display = "none"
+            document.getElementById("doodle_jump").style ="border-radius: 25px; display: flex; flex-align: center"
+            document.getElementById('score').style.display = "block"
+            play = true
+            const app = new Controller(new Model(), new View());
+            app.setView();
+            app.Update();
+        }
+
+        class Platform{
+            constructor(x, y){
+                let ez =  [1, 1, 1, 1, 2, 2];
+                let mid = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3];
+                let hard = [2, 2, 2, 3, 3, 3, 3, 3];
+
+                this.width = 57;
+                this.height = 17;
+                this.x = x
+                this.y = y
+       
+                this.type;
+                this.display = true;
+                this.direction = 1;
+
+                if (score >= 5000) 
+                    this.type = 3;
+                else if (score >= 2000 && score < 5000) 
+                    this.type = hard[Math.floor( Math.random() * hard.length )]
+                else if (score >= 1000 && score < 2000) 
+                    this.type = mid[Math.floor( Math.random() * mid.length )]
+                else if (score >= 100 && score < 1000) 
+                    this.type = ez[Math.floor( Math.random() * ez.length )]
+                else 
+                    this.type = 1;
+            }
+
+            moveHorizontaly(fps){
+                if(this.type === 2){
+                    let vx = 100;
+                    if (this.x < 0 || this.x + this.width > 480) 
+                        this.direction *= -1;
+				    this.x += this.direction * vx/fps;
+                }
+            }
+
+            collider(position){
+                if((this.x < position.x+15 && position.x+15 < this.x+this.width) || (this.x < position.x+50 && position.x+50 < this.x+this.width))
+                    if(this.y < position.y+62 && position.y+62 < this.y+this.height){
+                        return true
+                    }
+                return false
+            }
+            
+           
+        }
+
+        class Model {
+            static GRAVITY    = 15;
+            static JUMP_FORCE = 600;
+            static SPEED      = 200;
+            static width = 480;
+            static height = 768;
+            static isDead = 0;
+
+            constructor() {
+                this._direction = 0;                
+                this._gravitySpeed = 0;
+                this._position = {x: 200, y:600};
+                this.ai = new NeuralNetwork(6, [8, 5], 3);
+                this.input = [0.5, 0.8, 0.2, 0.9, 0.1, 0.4];
+                this.cmp_inactivity = 0;
+
+                this.platforms = [];
+                this.platforms.push(new Platform(this._position.x, this._position.y + 47))
+                let lvl_height = height / platformCount;
+                for (let i = 0; i < platformCount; i++) {
+                    let highest = this.platforms.at(-1).y
+                    let x = Math.random() * (width - 55);
+                    let y = highest - lvl_height - 17 ; 
+                    this.platforms.push(new Platform(x,y));
+                }
+            }
+
+            get position() { return this._position; }
+            get direction() { return this._direction; }
+            set direction(value) { return this._direction = value; }
+            
+            BindDisplay(callback) {
+                this.b_Display = callback;
+            }
+
+            distance(platform){
+                let a = (platform.x - this._position.x)/width
+                let b = (platform.y - this._position.y)/height
+                return Math.sqrt(a*a + b*b)
+            }
+
+            AllDistance(platforms){
+                let res = []
+                for(let i of platforms){
+                    res.push(this.distance(i))
+                }
+                    
+                res = res.sort((a,b) => a < b)
+                return res
+            }
+
+            Move(fps) {
+                this._gravitySpeed += Model.GRAVITY;
+                this._position.y += this._gravitySpeed / fps;
+                
+
+                if(this._position.x < -9)
+                    this._position.x = width;
+                else if(this._position.x > width)
+                    this._position.x = 0;
+                else{
+                    this._position.x += this._direction * Model.SPEED / fps;
+                }
+
+                if(this._position.y > 768){
+                    this.ded();
+                }
+
+                if (this.collidePlatform(fps) ) {
+                    this._Jump();
+                }
+
+                let oldScore = score;
+                
+
+                if(this._position.y <= height/2 && play){
+                    this.scrollUp(this._position);
+                }
+                
+                if(oldScore == score)
+                    this.cmp_inactivity++
+                //console.log("inactivity", this.cmp_inactivity)
+                if(this.cmp_inactivity >= 1000)
+                    this.ded()
+
+                this.platforms = this.platforms.filter(e => e.display)
+                this.b_Display(this._position, this.platforms);
+            }
+            
+            scrollUp() {
+                const offset = height/2 - this._position.y
+                // console.log(offset)
+                this._position.y = height/2
+                this.platforms.forEach((p) => { p.y += offset });
+
+                this.platforms = this.platforms.filter((p) => p.y < height)
+                let lvl_height = height / platformCount;
+                while (this.platforms.length < platformCount) {
+                    let highest = this.platforms.at(-1).y
+                    let x = Math.random() * (width - 55);
+                    let y = highest - lvl_height - 17 ; 
+                    this.platforms.push(new Platform(x,y));
+                }
+                if(offset > 0){
+                    score++;
+                    this.cmp_inactivity = 0;
+                }
+
+                if (score == 5000) {
+                    platformCount--;
+                    //console.log(platformCount)
+                }else if (score == 2000){
+                    platformCount--;
+                    //console.log(platformCount)
+                }else if (score == 1000 ){
+                    platformCount--;
+                    //console.log(platformCount)
+                }else if (score == 500){
+                    platformCount--;
+                    //console.log(platformCount)
+                }
+            }
+
+            collidePlatform(fps){
+                for(let p of this.platforms){
+                    p.moveHorizontaly(fps)
+                    if(p.collider(this._position)){
+                        if(p.type === 3)
+                            p.display = false;
+                        return true
+                    }
+                }       
+                return false
+            }
+
+            ded(){
+                this.isDead = true
+                let dedMsg = document.getElementById('DedMsg')
+                dedMsg.style.display = "flex";
+            }
+
+            AIplay(){
+                let dist = this.AllDistance(this.platforms)
+                this.input[0] = dist[0];
+                this.input[1] = dist[1];
+                this.input[2] = dist[2];
+                this.input[3] = dist[3];
+                this.input[4] = this._position.x;
+                this.input[5] = this._position.y;
+                console.log(this.input)
+                let res = this.indexOfMax(this.ai.feedforward(this.input))
+                switch(res){
+                    case 1:
+                        this._direction = -1
+                        break
+                    case 2:
+                        this._direction = 1
+                        break
+                    case 0:
+                        this._direction = 0
+                        break
+                }
+                console.log("ai :", res);
+            }
+
+            indexOfMax(arr) {
+                return arr.reduce((maxIndex, elem, i, arr) => 
+                    elem > arr[maxIndex] ? i : maxIndex, 0);
+            }
+
+            _Jump() {
+                this._gravitySpeed = -Model.JUMP_FORCE;
+            }
+        }
+
+
+        class View {
+            constructor() {
+                this._canvas = document.getElementById('doodle_jump')
+                this.ctx     = this._canvas.getContext('2d')
+                this._hold_right = false
+                this._hold_left = false
+
+                this.Events()
+            }
+
+            async loadTextures(){
+                this.left = await this.getImage("./img/left.png")
+                this.right = await this.getImage("./img/right.png")
+                this.bg = await this.getImage("./img/bg.png")
+                this.props = await this.getImage("./img/game-tiles.png")
+            }
+
+            getImage(path){
+                return new Promise((resolve, reject) => {
+                    const img = new Image()
+                    
+                    img.src = path
+                    img.onload = () => { resolve(img) }
+                    img.onerror = e => { reject(e) }
+                })
+            }
+
+            BindSetDirection(callback) {
+                this.b_SetDirection = callback;
+            }
+
+            BindGetDirection(callback) {
+                this.b_GetDirection = callback;
+            }
+
+            Events() {
+                document.addEventListener('keydown', (evt) => {         
+                    if (evt.key == 'ArrowLeft' || evt.key == 'ArrowRight') {
+                        switch (evt.key) {
+                            case 'ArrowLeft': // Move left.
+                                this._hold_left = true;
+                                this.b_SetDirection(-1);
+                                break;
+                            case 'ArrowRight': // Move right.
+                                this._hold_right = true;
+                                this.b_SetDirection(1);
+                                break;
+                        }
+                    }
+                });
+
+                document.addEventListener('keyup', (evt) => {
+                    this.lastDirection = this.b_GetDirection()
+                    switch (evt.key) {
+                        case 'ArrowLeft': // Move left.
+                            if (!this._hold_right) {
+                                this.b_SetDirection(0);
+                            }
+                            this._hold_left = false;
+                            break;
+                        case 'ArrowRight': // Move right.
+                            if (!this._hold_left) {
+                                this.b_SetDirection(0);
+                            }
+                            this._hold_right = false;
+                            break;
+                    }
+                });
+            }
+
+            Display(position, platforms) {
+                let x = position.x;
+                let y = position.y;
+
+                //Display Background
+                if(this.bg)
+                    this.DisplayBG()
+
+                //Display plateforme
+                if(this.props && platforms != undefined){
+                    for(let p of platforms){
+                        if(p.display)
+                            this.DisplayPlatform(p)
+                    }
+                }
+                //Display Player
+                if(this.right)
+                    this.DisplayPlayer(position)
+                
+                document.getElementById('score').innerHTML = "Score : " + score
+
+                //Display debug
+                // this.ctx.fillRect(x, y, 10, 10)
+            }
+
+            DisplayBG(){
+                //Background img
+                this.ctx.drawImage(this.bg, 0, 0)
+            }
+
+            DisplayPlayer(position){
+                let buff = this.b_GetDirection() ? this.b_GetDirection() : this.lastDirection;
+                if(buff > 0)
+                    this.ctx.drawImage(this.right, position.x, position.y, 62,60)
+                else
+                    this.ctx.drawImage(this.left, position.x, position.y, 62,60)
+            }
+
+            DisplayPlatform(p){
+                switch(p.type){
+                    case 2:
+                        this.ctx.drawImage(this.props, 1,19,57,15, p.x,p.y, p.width, p.height);
+                        break;
+                    case 3:
+                        this.ctx.drawImage(this.props, 1,55,57,15, p.x,p.y, p.width, p.height);
+                        break;
+                    default: 
+                        this.ctx.drawImage(this.props, 1,1,57,15, p.x,p.y, p.width, p.height);
+                        break;
+                }
+            }
+
+
+        }
+
+        class Controller {
+            constructor(model, view) {
+                this._model = model;
+                this._view = view;
+                
+                this._startTime     = Date.now();
+                this._lag           = 0;
+                this._fps           = 60; // Frame rate.
+                this._frameDuration = 1000 / this._fps; // Avec 60 frame par seconde, la frame va durer 16.7ms.
+
+                this._model.BindDisplay(this.Display.bind(this));
+                this._view.BindSetDirection(this.SetDirection.bind(this));
+                this._view.BindGetDirection(this.GetDirection.bind(this));
+            }
+
+            async setView(){
+                await this._view.loadTextures();
+            }
+
+            Display(position, platforms) {
+                this._view.Display(position, platforms);
+            }
+
+            SetDirection(newDirection) {
+                this._model.direction = newDirection;
+            }
+
+            GetDirection() {
+                return this._model.direction;
+            }
+            
+            Update() {
+                /* Calcul du deltaTime */
+                let currentTime = Date.now();
+                let deltaTime   = currentTime - this._startTime; // La durée entre deux appels (entre 2 frames).
+                
+                this._lag += deltaTime;
+                this._startTime = currentTime;
+
+                /* Mettre à jour la logique si la variable _lag est supérieure ou égale à la durée d'une frame */
+                while (this._lag >= this._frameDuration) {
+                    /* Mise à jour de la logique */
+                    
+                    //Si c'est l'IA qui joue choisir la direction ici
+                    if(AI)
+                        this._model.AIplay();
+                    
+                    this._model.Move(this._fps);
+                    /* Réduire la variable _lag par la durée d'une frame */
+                    this._lag -= this._frameDuration;
+                }
+                if(!this._model.isDead){
+                    requestAnimationFrame(this.Update.bind(this)); // La fonction de rappel est généralement appelée 60 fois par seconde.
+                }
+                    
+            }
+        }
+
+        
+    </script>
+    
+</body>
+</html>
