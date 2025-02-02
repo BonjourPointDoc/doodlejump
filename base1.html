@@ -9,13 +9,16 @@
 <body>
     <div class="game">
         <div class="game-items">
-            <h1 id="DedMsg" style="display:none">T'es mort</h1> 
-            <canvas id="doodle_jump" style="display:none" width="480" height="768"></canvas>
-            <p id="score" style="display:none" ></p> 
+            
+            <canvas id="doodle_jump" width="480" height="768" style="border-radius: 25px; display: flex; flex-align: center"></canvas>
+            <p id="score" style="display: block;" ></p> 
         </div>  
-        
+        <div class="menu">
+            <h1 id="DedMsg" style="display:none">T'es mort</h1> 
+            <button id="start" class="button" onclick="start(true)">Start</button>
+            <button id="IA" class="button" onclick="start(false)">Bot</button>
+        </div>
     </div>
-    <button id="start" onclick="start()">Start</button>
 
     <script>
         var score = 0;
@@ -125,15 +128,16 @@
 
 
 
-        function start(){
+        function start(type){
             document.getElementById("start").style.display = "none"
-            document.getElementById("doodle_jump").style ="border-radius: 25px; display: flex; flex-align: center"
-            document.getElementById('score').style.display = "block"
+            document.getElementById("IA").style.display = "none"
             play = true
             const app = new Controller(new Model(), new View());
             app.setView();
             app.Update();
+            type ? play = true : AI = true;
         }
+
 
         class Platform{
             constructor(x, y){
@@ -188,11 +192,11 @@
             static SPEED      = 200;
             static width = 480;
             static height = 768;
-            static isDead = 0;
 
             constructor() {
                 this._direction = 0;                
                 this._gravitySpeed = 0;
+                this.isDead = false;
                 this._position = {x: 200, y:600};
                 this.ai = new NeuralNetwork(6, [8, 5], 3);
                 this.input = [0.5, 0.8, 0.2, 0.9, 0.1, 0.4];
@@ -247,7 +251,7 @@
                 }
 
                 if(this._position.y > 768){
-                    this.ded();
+                    this.isDead = true
                 }
 
                 if (this.collidePlatform(fps) ) {
@@ -265,10 +269,10 @@
                     this.cmp_inactivity++
                 //console.log("inactivity", this.cmp_inactivity)
                 if(this.cmp_inactivity >= 1000)
-                    this.ded()
+                    this.isDead = true
 
                 this.platforms = this.platforms.filter(e => e.display)
-                this.b_Display(this._position, this.platforms);
+                this.b_Display(this._position, this.platforms, this.isDead);
             }
             
             scrollUp() {
@@ -315,12 +319,6 @@
                     }
                 }       
                 return false
-            }
-
-            ded(){
-                this.isDead = true
-                let dedMsg = document.getElementById('DedMsg')
-                dedMsg.style.display = "flex";
             }
 
             AIplay(){
@@ -428,7 +426,7 @@
                 });
             }
 
-            Display(position, platforms) {
+            Display(position, platforms, isDead) {
                 let x = position.x;
                 let y = position.y;
 
@@ -446,11 +444,14 @@
                 //Display Player
                 if(this.right)
                     this.DisplayPlayer(position)
+
+                if(isDead){
+                    let dedMsg = document.getElementById('DedMsg')
+                    dedMsg.style.display = "flex";
+                }
                 
                 document.getElementById('score').innerHTML = "Score : " + score
 
-                //Display debug
-                // this.ctx.fillRect(x, y, 10, 10)
             }
 
             DisplayBG(){
@@ -502,8 +503,8 @@
                 await this._view.loadTextures();
             }
 
-            Display(position, platforms) {
-                this._view.Display(position, platforms);
+            Display(position, platforms, isDead) {
+                this._view.Display(position, platforms, isDead);
             }
 
             SetDirection(newDirection) {
