@@ -74,27 +74,31 @@
 
         // Initialiser un réseau de neurones feedforward
         class NeuralNetwork {
-            constructor(inputSize, hiddenSizes, outputSize) {
+            constructor(inputSize, hiddenSizes, outputSize, weights) {
                 this.inputSize = inputSize;
                 this.hiddenSizes = hiddenSizes;
                 this.outputSize = outputSize;
 
                 // Initialisation des poids et biais
                 this.weights = [];
+                if(weights !== undefined){
+                    this.weights = weights;
+                }else{
+                    // Poids entre l'entrée et la première couche cachée
+                    this.weights.push(this.randomMatrix(inputSize, hiddenSizes[0]));
+                    // Poids entre les couches cachées
+                    for (let i = 0; i < hiddenSizes.length - 1; i++) {
+                        this.weights.push(this.randomMatrix(hiddenSizes[i], hiddenSizes[i + 1]));
+                    }
+                    // Poids entre la dernière couche cachée et la sortie
+                    this.weights.push(this.randomMatrix(hiddenSizes[hiddenSizes.length - 1], outputSize));
+                }
                 this.biases = [];
 
-                // Poids entre l'entrée et la première couche cachée
-                this.weights.push(this.randomMatrix(inputSize, hiddenSizes[0]));
                 this.biases.push(Array(hiddenSizes[0]).fill(0));
-
-                // Poids entre les couches cachées
                 for (let i = 0; i < hiddenSizes.length - 1; i++) {
-                    this.weights.push(this.randomMatrix(hiddenSizes[i], hiddenSizes[i + 1]));
                     this.biases.push(Array(hiddenSizes[i + 1]).fill(0));
                 }
-
-                // Poids entre la dernière couche cachée et la sortie
-                this.weights.push(this.randomMatrix(hiddenSizes[hiddenSizes.length - 1], outputSize));
                 this.biases.push(Array(outputSize).fill(0));
             }
 
@@ -186,13 +190,13 @@
             static SPEED      = 68;
             static width = 160;
             static height = 256;
-            // static isDead = 0;
-
-            constructor() {
+      
+            constructor(index) {
                 this._direction = 0;                
                 this._gravitySpeed = 0;
                 this.isDead = false;
                 this.score = 0
+                this.index = index
                 this._position = {x: 70, y:200};
                 this.ai = new NeuralNetwork(6, [8, 5], 3);
                 this.input = [0.5, 0.8, 0.2, 0.9, 0.1, 0.4];
@@ -238,7 +242,6 @@
                 this._gravitySpeed += Model.GRAVITY;
                 this._position.y += this._gravitySpeed / fps;
                 
-
                 if(this._position.x < -9)
                     this._position.x = width;
                 else if(this._position.x > width)
@@ -248,25 +251,31 @@
                 }
 
                 if(this._position.y > 256){
-                    this.isDead = true
+                    this.died()
                 }
                 let oldScore = this.score;
                 if (this.collidePlatform(fps) ) {
                     this._Jump();
                 }
 
-                if(this._position.y <= height/2){
+                if(this._position.y <= height/2 && !this.isDead){
                     this.scrollUp(this._position);
                 }
                 
                 if(oldScore == this.score)
                     this.cmp_inactivity++
-                if(this.cmp_inactivity >= 1000)
-                    this.isDead = true
-
+                if(this.cmp_inactivity >= 1000){
+                    this.died()
+                }
 
                 this.platforms = this.platforms.filter(e => e.display)
                 this.b_Display(this._position, this.platforms, this.isDead, this.ai.weights, this.score);
+            }
+
+            died(){ 
+                if(!this.isDead)
+                    testSubjects.push({weights: this.ai.weights, score: this.score})
+                this.isDead = true
             }
             
             scrollUp() {
@@ -436,13 +445,8 @@
                 if(isDead){
                     let dedMsg = document.getElementById("DedMsg" + this.index)
                     dedMsg.style.display = "flex";
-                    let test = document.getElementById("test")
-                    test.innerText += "Doodle " + this.index + " " + JSON.stringify(weights) + "\n"
                 }
                 document.getElementById('score' + this.index).innerHTML = "Score : " + score
-
-                //Display debug
-                // this.ctx.fillRect(x, y, 10, 10)
             }
 
             DisplayBG(){
@@ -533,44 +537,61 @@
             }
         }
 
-        function start(){
-            const app = new Controller(new Model(), new View(0));
-            app.setView();
-            app.Update();
+        let restartInterval;
+        var testSubjects = []
+        var size = 5
+        start()
 
-            const app2 = new Controller(new Model(), new View(1));
-            app2.setView();
-            app2.Update();
-
-            const app3 = new Controller(new Model(), new View(2));
-            app3.setView();
-            app3.Update();
-
-            const app4 = new Controller(new Model(), new View(3));
-            app4.setView();
-            app4.Update();
-            
-            const app5 = new Controller(new Model(), new View(4));
-            app5.setView();
-            app5.Update();
-
-            let POPULATION = []
+        function avg(oldSubject, bestScore) {
+            return oldSubject.map(mat => 
+                mat.map((row, i) => 
+                    row.map((value, j) => 
+                        (value + bestScore[i][j]) / 2 // Calculate the average
+                    )
+                )
+            );
         }
-        
-        start();
 
-        // function ratio(){
-        //     while(true){
-        //         if(POPULATION.length >= 5){
-        //             console.log("Tous morts")
-        //             return;
-        //         }
-        //     }
-        // }
 
-        // ratio();
-        
+        function checkAndRestart() {
+            if (testSubjects.length === size) {
+                console.log("All AIs are dead. Restarting...");
+               
+                let bestScore = testSubjects.reduce((max, current) => {
+                    return (current.score > max.score) ? current : max;
+                }, testSubjects[0]); 
+                document.getElementById("test").innerText += "Best player\n" + JSON.stringify(bestScore.weights) + "\n"
+                const matrices = testSubjects.map(item => item.weights);
+                // console.log(matrices)
+                // console.log(testSubjects)
+                let newTestSubjects = avg(matrices, bestScore.weights);
+                testSubjects = [];
+                start(newTestSubjects);
+            }
+        }
 
+        // Ensure only one interval exists at a time
+        function startMonitoring() {
+            clearInterval(restartInterval);
+            restartInterval = setInterval(checkAndRestart, 1000);
+        }
+
+        function start(weights){
+            for(let i = 0; i < size; i++){
+                if(weights === undefined){
+                    const app = new Controller(new Model(i), new View(i)); 
+                    app.setView();
+                    app.Update();
+                }else{
+                    const app = new Controller(new Model(i, weights), new View(i)); 
+                    app.setView();
+                    app.Update();
+                }
+               
+            }
+
+            startMonitoring();
+        }
         
     </script>
     
