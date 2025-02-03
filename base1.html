@@ -598,7 +598,7 @@
                     tournament.push(population[randomIndex]);
                 }
 
-                tournament.sort((a, b) => b.score - a.score); // Sort by fitness (higher = better)
+                tournament.sort((a, b) => b.score - a.score);
                 selected.push(tournament[0]); // Best from the tournament
             }
 
@@ -608,33 +608,33 @@
         function checkAndRestart() {
             if (testSubjects.length === size) {
                 console.log("All AIs are dead. Restarting...");
+                let bestScore = testSubjects.reduce((max, current) => {
+                    return (current.score > max.score) ? current : max;
+                }, testSubjects[0]); 
+
                 let parents = tournamentSelection(testSubjects, 3); // Tournament size 3
+                console.log(parents)
                 testSubjects = []
                 // Generate new test subjects using crossover and mutation
                 let tmp = [];
                 for (let i = 0; i < size; i += 2) {
                     let parent1 = parents[i];
-                    let parent2 = parents[i + 1] || parents[0]; // Handle odd number
+                    let parent2 = parents[i + 1] || parents[0]; 
                     let child1 = mutate(crossover(parent1.weights, parent2.weights));
-                    let child2 = mutate(crossover(parent2.weights, parent1.weights));
-
                     tmp.push(child1);
-                    tmp.push(child2);
+       
                 }
 
                 let newTestSubjects = tmp.slice(0, size); // Keep population size constant
-                console.log(newTestSubjects)
+                // console.log(newTestSubjects)
 
-                // Meilleur joueur
-                let bestScore = parents[0]; // Tournament selection picks best players
                 document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
 
-                if(bestScore.score !== 0){
-                    let newTestSubjects = avg(matrices, bestScore.weights);
+                // if(bestScore.score !== 0){
                     start(newTestSubjects);
-                }else{
-                    start();
-                }
+                // }else{
+                //     start();
+                // }
             }
         }
 
