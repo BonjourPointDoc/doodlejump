@@ -78,12 +78,15 @@
                 this.inputSize = inputSize;
                 this.hiddenSizes = hiddenSizes;
                 this.outputSize = outputSize;
-
+                console.log(weights)
                 // Initialisation des poids et biais
                 this.weights = [];
                 if(weights !== undefined){
+                    console.log("Matrice moyenne de l'ancienne")
                     this.weights = weights;
+                    console.log(this.weights)
                 }else{
+                    console.log("Matrice générée aléatoirement")
                     // Poids entre l'entrée et la première couche cachée
                     this.weights.push(this.randomMatrix(inputSize, hiddenSizes[0]));
                     // Poids entre les couches cachées
@@ -191,14 +194,14 @@
             static width = 160;
             static height = 256;
       
-            constructor(index) {
+            constructor(index, weights) {
                 this._direction = 0;                
                 this._gravitySpeed = 0;
                 this.isDead = false;
                 this.score = 0
                 this.index = index
                 this._position = {x: 70, y:200};
-                this.ai = new NeuralNetwork(6, [8, 5], 3);
+                this.ai = new NeuralNetwork(6, [8, 5], 3, weights);
                 this.input = [0.5, 0.8, 0.2, 0.9, 0.1, 0.4];
                 this.cmp_inactivity = 0;
 
@@ -543,13 +546,16 @@
         start()
 
         function avg(oldSubject, bestScore) {
-            return oldSubject.map(mat => 
+            let newTestSubjects = oldSubject.map(mat => 
                 mat.map((row, i) => 
-                    row.map((value, j) => 
-                        (value + bestScore[i][j]) / 2 // Calculate the average
-                    )
+                    row.map((value, j) => {
+                        // console.log(bestScore[i][j][0])
+                        return value.map((val, k) => (val + bestScore[i][j][k]) / 2);
+                        
+                    })
                 )
             );
+            return newTestSubjects
         }
 
 
@@ -560,11 +566,10 @@
                 let bestScore = testSubjects.reduce((max, current) => {
                     return (current.score > max.score) ? current : max;
                 }, testSubjects[0]); 
-                document.getElementById("test").innerText += "Best player\n" + JSON.stringify(bestScore.weights) + "\n"
-                const matrices = testSubjects.map(item => item.weights);
-                // console.log(matrices)
-                // console.log(testSubjects)
+                document.getElementById("test").innerText += "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n"
+                let matrices = testSubjects.map(item => item.weights);
                 let newTestSubjects = avg(matrices, bestScore.weights);
+                // console.log(newTestSubjects)
                 testSubjects = [];
                 start(newTestSubjects);
             }
@@ -583,7 +588,7 @@
                     app.setView();
                     app.Update();
                 }else{
-                    const app = new Controller(new Model(i, weights), new View(i)); 
+                    const app = new Controller(new Model(i, weights[i]), new View(i)); 
                     app.setView();
                     app.Update();
                 }
