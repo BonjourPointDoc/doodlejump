@@ -78,13 +78,11 @@
                 this.inputSize = inputSize;
                 this.hiddenSizes = hiddenSizes;
                 this.outputSize = outputSize;
-                console.log(weights)
                 // Initialisation des poids et biais
                 this.weights = [];
                 if(weights !== undefined){
                     console.log("Matrice moyenne de l'ancienne")
                     this.weights = weights;
-                    console.log(this.weights)
                 }else{
                     console.log("Matrice générée aléatoirement")
                     // Poids entre l'entrée et la première couche cachée
@@ -545,33 +543,98 @@
         var size = 5
         start()
 
-        function avg(oldSubject, bestScore) {
-            let newTestSubjects = oldSubject.map(mat => 
+        // function avg(oldSubject, bestScore) { 
+        //     let newTestSubjects = oldSubject.map(mat => 
+        //         mat.map((row, i) => 
+        //             row.map((value, j) => {
+        //                 return value.map((val, k) => ((val + bestScore[i][j][k]) / 2) + (Math.random() * 0.2) - 0.1) 
+                        
+        //             })
+        //         )
+        //     );
+        //     return newTestSubjects
+        // }
+
+        // function checkAndRestart() {
+        //     if (testSubjects.length === size) {
+        //         console.log("All AIs are dead. Restarting...");
+               
+        //         let bestScore = testSubjects.reduce((max, current) => {
+        //             return (current.score > max.score) ? current : max;
+        //         }, testSubjects[0]); 
+        //         document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n"
+        //         let matrices = testSubjects.map(item => item.weights); 
+        //         testSubjects = [];
+        //         if(bestScore.score !== 0){
+        //             let newTestSubjects = avg(matrices, bestScore.weights);
+        //             start(newTestSubjects);
+        //         }else{
+        //             start();
+        //         }
+        //     }
+        // }
+
+        function crossover(parent1, parent2) {
+            return parent1.map((val, i) => (Math.random() < 0.5 ? val : parent2[i]));
+        }
+
+        function mutate(child) { 
+            return child.map(mat => 
                 mat.map((row, i) => 
                     row.map((value, j) => {
-                        // console.log(bestScore[i][j][0])
-                        return value.map((val, k) => (val + bestScore[i][j][k]) / 2);
-                        
+                        return (Math.random() < 0.1 ? value + (Math.random() * 0.2 - 0.1) : value);
                     })
                 )
             );
-            return newTestSubjects
         }
 
+        function tournamentSelection(population, tournamentSize) {
+            let selected = [];
+            
+            for (let i = 0; i < population.length; i++) {
+                let tournament = [];
+                for (let j = 0; j < tournamentSize; j++) {
+                    let randomIndex = Math.floor(Math.random() * population.length);
+                    tournament.push(population[randomIndex]);
+                }
+
+                tournament.sort((a, b) => b.score - a.score); // Sort by fitness (higher = better)
+                selected.push(tournament[0]); // Best from the tournament
+            }
+
+            return selected;
+        }
 
         function checkAndRestart() {
             if (testSubjects.length === size) {
                 console.log("All AIs are dead. Restarting...");
-               
-                let bestScore = testSubjects.reduce((max, current) => {
-                    return (current.score > max.score) ? current : max;
-                }, testSubjects[0]); 
-                document.getElementById("test").innerText += "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n"
-                let matrices = testSubjects.map(item => item.weights);
-                let newTestSubjects = avg(matrices, bestScore.weights);
-                // console.log(newTestSubjects)
-                testSubjects = [];
-                start(newTestSubjects);
+                let parents = tournamentSelection(testSubjects, 3); // Tournament size 3
+                testSubjects = []
+                // Generate new test subjects using crossover and mutation
+                let tmp = [];
+                for (let i = 0; i < size; i += 2) {
+                    let parent1 = parents[i];
+                    let parent2 = parents[i + 1] || parents[0]; // Handle odd number
+                    let child1 = mutate(crossover(parent1.weights, parent2.weights));
+                    let child2 = mutate(crossover(parent2.weights, parent1.weights));
+
+                    tmp.push(child1);
+                    tmp.push(child2);
+                }
+
+                let newTestSubjects = tmp.slice(0, size); // Keep population size constant
+                console.log(newTestSubjects)
+
+                // Meilleur joueur
+                let bestScore = parents[0]; // Tournament selection picks best players
+                document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
+
+                if(bestScore.score !== 0){
+                    let newTestSubjects = avg(matrices, bestScore.weights);
+                    start(newTestSubjects);
+                }else{
+                    start();
+                }
             }
         }
 
