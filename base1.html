@@ -74,33 +74,33 @@
 
         // Initialiser un réseau de neurones feedforward
         class NeuralNetwork {
-            constructor(inputSize, hiddenSizes, outputSize, weights) {
+            constructor(inputSize, hiddenSizes, outputSize, base) {
                 this.inputSize = inputSize;
                 this.hiddenSizes = hiddenSizes;
                 this.outputSize = outputSize;
                 // Initialisation des poids et biais
-                this.weights = [];
-                if(weights !== undefined){
+                this.weights = []; 
+                this.biases = [];
+
+                if(base !== undefined){
                     console.log("Matrice moyenne de l'ancienne")
-                    this.weights = weights;
+                    this.weights = base.weights
+                    this.biases = base.bias
                 }else{
                     console.log("Matrice générée aléatoirement")
                     // Poids entre l'entrée et la première couche cachée
-                    this.weights.push(this.randomMatrix(inputSize, hiddenSizes[0]));
+                    this.weights.push(this.randomMatrix(inputSize, hiddenSizes[0]));  
+                    this.biases.push(Array(hiddenSizes[0]).fill(0));
+
                     // Poids entre les couches cachées
                     for (let i = 0; i < hiddenSizes.length - 1; i++) {
                         this.weights.push(this.randomMatrix(hiddenSizes[i], hiddenSizes[i + 1]));
+                        this.biases.push(Array(hiddenSizes[i + 1]).fill(0));
                     }
                     // Poids entre la dernière couche cachée et la sortie
                     this.weights.push(this.randomMatrix(hiddenSizes[hiddenSizes.length - 1], outputSize));
+                    this.biases.push(Array(outputSize).fill(0));
                 }
-                this.biases = [];
-
-                this.biases.push(Array(hiddenSizes[0]).fill(0));
-                for (let i = 0; i < hiddenSizes.length - 1; i++) {
-                    this.biases.push(Array(hiddenSizes[i + 1]).fill(0));
-                }
-                this.biases.push(Array(outputSize).fill(0));
             }
 
             // Générer une matrice aléatoire
@@ -275,7 +275,7 @@
 
             died(){ 
                 if(!this.isDead)
-                    testSubjects.push({weights: this.ai.weights, score: this.score})
+                    testSubjects.push({weights: this.ai.weights, bias: this.ai.biases, score: this.score})
                 this.isDead = true
             }
             
@@ -554,6 +554,14 @@
             );
         }
 
+        function mutateBias(child) { 
+            return child.map(mat => 
+                mat.map((value, i) => {
+                    return (Math.random() < 0.1 ? value + (Math.random() * 0.2 - 0.1) : value);  
+                })
+            );
+        }
+
         function avg(parent1, parent2) {
             return parent1.map((mat, i) => 
                 mat.map((row, j) => 
@@ -564,27 +572,45 @@
             );
         }
 
+        function avgBias(matrix1, matrix2) {
+            return matrix1.map((mat, i) => 
+                mat.map((value, j) => {
+                        return ((value + matrix2[i][j]) / 2)
+                })
+            );
+        }
+
 
         function tournamentSelection(pool) {
             let tournament = []
-            let index1 = Math.floor( Math.random() * poolSize )
-            let index2;
-            do{
-                index2 = Math.floor( Math.random() * poolSize )
-            }while(index2 === index1);
+            let indexes = []
+            let parents = []
+            let index1, index2
+            for(let i =0; i < 2; i++){
+                do{
+                    index1 = Math.floor( Math.random() * poolSize )
+                }while(indexes.includes(index1));
+                indexes.push(index1)
 
-            tournament.push(pool[index1])
-            tournament.push(pool[index2])
-            tournament.sort((a, b) => b.score - a.score);
-            
-            return tournament[0]
+                do{
+                    index2 = Math.floor( Math.random() * poolSize )
+                }while(indexes.includes(index2));
+                indexes.push(index2)
+
+                tournament.push(pool[index1])
+                tournament.push(pool[index2])
+                tournament.sort((a, b) => b.score - a.score);
+                parents.push(tournament[0])
+                tournament = []
+            }
+            return parents
         }
 
         function selection(pool){
             let sortedPool = pool
             let size = Math.floor(poolSize * nbParents);
             sortedPool.sort(function(a, b){return b.score - a.score });
-            return sortedPool.slice(0, size).map(item => item.weights); 
+            return sortedPool.slice(0, size).map((item) => { return { weights: item.weights, bias: item.bias}}); 
         }
 
         function checkAndRestart() {
@@ -598,13 +624,12 @@
                 let newTestSubjects = selection(testSubjects)
 
                 while(newTestSubjects.length < poolSize){
-                    let parent1 = tournamentSelection(testSubjects);
-                    let parent2 = tournamentSelection(testSubjects);
-                    let child = mutate(avg(parent1.weights, parent2.weights))
+                    let parents = tournamentSelection(testSubjects);
+                    let child = { weights : mutate(avg(parents[0].weights, parents[1].weights)), bias: mutateBias(avgBias(parents[0].bias, parents[1].bias)) }
                     newTestSubjects.push(child)
                 }
                 testSubjects = []
-
+                // console.log(newTestSubjects)
                 document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
                 start(newTestSubjects);
             }
@@ -616,14 +641,14 @@
             restartInterval = setInterval(checkAndRestart, 1000);
         }
 
-        function start(weights){
+        function start(newPool){
             for(let i = 0; i < poolSize; i++){
-                if(weights === undefined){
+                if(newPool === undefined){
                     const app = new Controller(new Model(i), new View(i)); 
                     app.setView();
                     app.Update();
                 }else{
-                    const app = new Controller(new Model(i, weights[i]), new View(i)); 
+                    const app = new Controller(new Model(i, newPool[i]), new View(i)); 
                     app.setView();
                     app.Update();
                 }
