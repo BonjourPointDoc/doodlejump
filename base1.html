@@ -110,11 +110,11 @@
                 }
                 this.biases = [];
 
-                this.biases.push(Array(hiddenSizes[0]).fill(0));
+                this.biases.push(Array(hiddenSizes[0]).fill(0).map(() => Math.random() * 0.2 - 0.1));
                 for (let i = 0; i < hiddenSizes.length - 1; i++) {
-                    this.biases.push(Array(hiddenSizes[i + 1]).fill(0));
+                    this.biases.push(Array(hiddenSizes[i + 1]).fill(0).map(() => Math.random() * 0.2 - 0.1));
                 }
-                this.biases.push(Array(outputSize).fill(0));
+                this.biases.push(Array(outputSize).fill(0).map(() => Math.random() * 0.2 - 0.1));
             }
 
             // Générer une matrice aléatoire
@@ -136,7 +136,6 @@
                 }
 
                 let activations = [inputVector];
-                //console.log("activation", activations)
                 for (let i = 0; i < this.weights.length; i++) {
                     
                     let weightedSum = matrixMultiply([activations[i]], this.weights[i]).flat(); // Produit matriciel
@@ -457,15 +456,14 @@
                 if(this.right)
                     this.DisplayPlayer(position)
 
-                if(isDead){
-                    let DeathMsg = document.getElementById("DeathMsg" + this.index)
-                    DeathMsg.style.display = "flex";
-                }
+                if(isDead)
+                    this.displayDeathScreen();
+
+
                 document.getElementById('score' + this.index).innerHTML = "Score : " + score
             }
 
             DisplayBG(){
-                //Background img
                 this.ctx.drawImage(this.bg, 0, 0)
             }
 
@@ -491,7 +489,10 @@
                 }
             }
 
-
+            displayDeathScreen(){
+                let DeathMsg = document.getElementById("DeathMsg" + this.index)
+                DeathMsg.style.display = "flex";
+            }
         }
 
         class Controller {
