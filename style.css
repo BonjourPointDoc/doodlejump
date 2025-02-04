@@ -10,7 +10,7 @@
 
 .game{
     display:grid;
-    grid-template-columns: auto auto auto auto auto;
+    grid-template-columns: auto auto auto auto auto auto auto auto auto;
 }
 
 #myChart {
@@ -18,5 +18,5 @@
     min-height: 400px;
     max-width: 600px;
     max-height: 400px;
-  }
-  
+}
+
