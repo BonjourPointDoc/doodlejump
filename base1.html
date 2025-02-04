@@ -3,38 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <title>Doodle Jump</title>
 </head>
 <body>
-    <div class="game" style="display:grid;grid-template-columns: auto auto auto auto auto;">
+    <h1 class="title">Learning</h1>
+    <hr class="separator"/>
+    <div class="game">
         <div>
-            <h1 id="DedMsg0" style="display:none">T'es mort</h1> 
             <canvas id="doodle_jump0" width="160" height="256"></canvas>
             <p id="score0"></p> 
+            <h3 id="DeathMsg0" style="display:none">He is dead.</h3> 
         </div>  
         <div>
-            <h1 id="DedMsg1" style="display:none">T'es mort</h1> 
             <canvas id="doodle_jump1" width="160" height="256"></canvas>
             <p id="score1"></p> 
+            <h3 id="DeathMsg1" style="display:none">He is dead</h3> 
         </div>
         <div>
-            <h1 id="DedMsg2" style="display:none">T'es mort</h1> 
             <canvas id="doodle_jump2" width="160" height="256"></canvas>
             <p id="score2"></p> 
+            <h3 id="DeathMsg2" style="display:none">He is dead</h3> 
         </div>
-        <div>
-            <h1 id="DedMsg3" style="display:none">T'es mort</h1> 
+        <div> 
             <canvas id="doodle_jump3" width="160" height="256"></canvas>
             <p id="score3"></p> 
+            <h3 id="DeathMsg3" style="display:none">He is dead</h3> 
         </div>
         <div>
-            <h1 id="DedMsg4" style="display:none">T'es mort</h1> 
             <canvas id="doodle_jump4" width="160" height="256"></canvas>
             <p id="score4"></p> 
+            <h3 id="DeathMsg4" style="display:none">He is dead</h3> 
         </div>
-        
     </div>
-    <p id="test"></p>
+    <hr class="separator"/>
+    <div>
+        <h2 class="title">Best Score Overall : <span id="matrixBest">0</span></h2>
+        <p id="matrixResult"></p>
+    </div>
+    <hr class="separator"/>
+    <div class="title">
+        <h2 class="title">Graph</h2>
+        <canvas id="myChart"></canvas>
+    </div>
+    
+
     <script>
         var width = 160;
         var height = 256;
@@ -331,13 +345,13 @@
                 let res = this.indexOfMax(this.ai.feedforward(this.input))
                 switch(res){
                     case 1:
-                        this._direction = -1
+                        this._direction = 0
                         break
                     case 2:
                         this._direction = 1
                         break
                     case 0:
-                        this._direction = 0
+                        this._direction = -1
                         break
                 }
             }
@@ -444,8 +458,8 @@
                     this.DisplayPlayer(position)
 
                 if(isDead){
-                    let dedMsg = document.getElementById("DedMsg" + this.index)
-                    dedMsg.style.display = "flex";
+                    let DeathMsg = document.getElementById("DeathMsg" + this.index)
+                    DeathMsg.style.display = "flex";
                 }
                 document.getElementById('score' + this.index).innerHTML = "Score : " + score
             }
@@ -538,42 +552,6 @@
             }
         }
 
-        let restartInterval;
-        var testSubjects = []
-        var size = 5
-        start()
-
-        // function avg(oldSubject, bestScore) { 
-        //     let newTestSubjects = oldSubject.map(mat => 
-        //         mat.map((row, i) => 
-        //             row.map((value, j) => {
-        //                 return value.map((val, k) => ((val + bestScore[i][j][k]) / 2) + (Math.random() * 0.2) - 0.1) 
-                        
-        //             })
-        //         )
-        //     );
-        //     return newTestSubjects
-        // }
-
-        // function checkAndRestart() {
-        //     if (testSubjects.length === size) {
-        //         console.log("All AIs are dead. Restarting...");
-               
-        //         let bestScore = testSubjects.reduce((max, current) => {
-        //             return (current.score > max.score) ? current : max;
-        //         }, testSubjects[0]); 
-        //         document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n"
-        //         let matrices = testSubjects.map(item => item.weights); 
-        //         testSubjects = [];
-        //         if(bestScore.score !== 0){
-        //             let newTestSubjects = avg(matrices, bestScore.weights);
-        //             start(newTestSubjects);
-        //         }else{
-        //             start();
-        //         }
-        //     }
-        // }
-
         function crossover(parent1, parent2) {
             return parent1.map((val, i) => (Math.random() < 0.5 ? val : parent2[i]));
         }
@@ -607,15 +585,15 @@
 
         function checkAndRestart() {
             if (testSubjects.length === size) {
+                iteration ++;
                 console.log("All AIs are dead. Restarting...");
                 let bestScore = testSubjects.reduce((max, current) => {
                     return (current.score > max.score) ? current : max;
                 }, testSubjects[0]); 
 
-                let parents = tournamentSelection(testSubjects, 3); // Tournament size 3
+                let parents = tournamentSelection(testSubjects, 3);
                 console.log(parents)
                 testSubjects = []
-                // Generate new test subjects using crossover and mutation
                 let tmp = [];
                 for (let i = 0; i < size; i += 2) {
                     let parent1 = parents[i];
@@ -625,16 +603,17 @@
        
                 }
 
-                let newTestSubjects = tmp.slice(0, size); // Keep population size constant
-                // console.log(newTestSubjects)
+                let newTestSubjects = tmp.slice(0, size);
 
-                document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
+                document.getElementById("matrixResult").innerText = "Score of the best player in the last gen : " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
+                
+                let oldBestScore = parseInt(document.getElementById('matrixBest').innerHTML);
+                
+                if(bestScore.score > oldBestScore)
+                    document.getElementById('matrixBest').innerHTML = bestScore.score;
 
-                // if(bestScore.score !== 0){
-                    start(newTestSubjects);
-                // }else{
-                //     start();
-                // }
+                scoreHistory.push(bestScore.score);
+                start(newTestSubjects);
             }
         }
 
@@ -654,13 +633,69 @@
                     const app = new Controller(new Model(i, weights[i]), new View(i)); 
                     app.setView();
                     app.Update();
+                    document.getElementById("DeathMsg" + i).style.display = "none";
                 }
                
             }
-
             startMonitoring();
+            updateChart(scoreHistory,iteration); 
         }
-        
+
+        function setChart(){
+            // Sélection du canvas
+            var ctx = document.getElementById('myChart').getContext('2d');
+
+            // Création du graphique
+            return new Chart(ctx, {
+                type: 'line', 
+                data: {
+                    labels: [], // Axe X : nombre d'itérations
+                    datasets: [{
+                        label: 'Score',
+                        data: [], // Axe Y : score
+                        borderColor: 'red', 
+                        backgroundColor: 'rgba(255, 0, 0, 0.2)',
+                        borderWidth: 2,
+                        pointRadius: 5, // Taille des points
+                        pointBackgroundColor: 'red'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Nombre d’itérations'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Score'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(arrScore, iteration){
+            myChart.data.labels = Array.from({ length: iteration + 1 }, (_, i) => i);
+            myChart.data.datasets[0].data = arrScore;
+            myChart.update();
+        }
+
+        let restartInterval;
+        var testSubjects = [];
+        var size = 5;
+        var iteration = 0;
+        var scoreHistory = [];
+        var myChart = setChart(); 
+        start();
+          
     </script>
     
 </body>
