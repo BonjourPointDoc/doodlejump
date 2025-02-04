@@ -637,30 +637,14 @@
         }
 
         function checkAndRestart() {
-
-            if (testSubjects.length === size) {
-                iteration ++;
-
             if (testSubjects.length === poolSize) {
+                iteration ++;
 
                 console.log("All AIs are dead. Restarting...");
 
                 let bestScore = testSubjects.reduce((max, current) => {
                     return (current.score > max.score) ? current : max;
-                }, testSubjects[0]); 
-
-
-                let parents = tournamentSelection(testSubjects, 3);
-                console.log(parents)
-                testSubjects = []
-                let tmp = [];
-                for (let i = 0; i < size; i += 2) {
-                    let parent1 = parents[i];
-                    let parent2 = parents[i + 1] || parents[0]; 
-                    let child1 = mutate(crossover(parent1.weights, parent2.weights));
-                    tmp.push(child1);
-       
-                }
+                }, testSubjects[0]);
 
                 let newTestSubjects = selection(testSubjects)
 
