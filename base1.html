@@ -540,43 +540,9 @@
 
         let restartInterval;
         var testSubjects = []
-        var size = 5
+        var poolSize = 5
+        var nbParents = 0.3; 
         start()
-
-        // function avg(oldSubject, bestScore) { 
-        //     let newTestSubjects = oldSubject.map(mat => 
-        //         mat.map((row, i) => 
-        //             row.map((value, j) => {
-        //                 return value.map((val, k) => ((val + bestScore[i][j][k]) / 2) + (Math.random() * 0.2) - 0.1) 
-                        
-        //             })
-        //         )
-        //     );
-        //     return newTestSubjects
-        // }
-
-        // function checkAndRestart() {
-        //     if (testSubjects.length === size) {
-        //         console.log("All AIs are dead. Restarting...");
-               
-        //         let bestScore = testSubjects.reduce((max, current) => {
-        //             return (current.score > max.score) ? current : max;
-        //         }, testSubjects[0]); 
-        //         document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n"
-        //         let matrices = testSubjects.map(item => item.weights); 
-        //         testSubjects = [];
-        //         if(bestScore.score !== 0){
-        //             let newTestSubjects = avg(matrices, bestScore.weights);
-        //             start(newTestSubjects);
-        //         }else{
-        //             start();
-        //         }
-        //     }
-        // }
-
-        function crossover(parent1, parent2) {
-            return parent1.map((val, i) => (Math.random() < 0.5 ? val : parent2[i]));
-        }
 
         function mutate(child) { 
             return child.map(mat => 
@@ -588,53 +554,59 @@
             );
         }
 
-        function tournamentSelection(population, tournamentSize) {
-            let selected = [];
+        function avg(parent1, parent2) {
+            return parent1.map((mat, i) => 
+                mat.map((row, j) => 
+                    row.map((value, k) => {
+                        return ((value + parent2[i][j][k]) / 2)
+                    })
+                )
+            );
+        }
+
+
+        function tournamentSelection(pool) {
+            let tournament = []
+            let index1 = Math.floor( Math.random() * poolSize )
+            let index2;
+            do{
+                index2 = Math.floor( Math.random() * poolSize )
+            }while(index2 === index1);
+
+            tournament.push(pool[index1])
+            tournament.push(pool[index2])
+            tournament.sort((a, b) => b.score - a.score);
             
-            for (let i = 0; i < population.length; i++) {
-                let tournament = [];
-                for (let j = 0; j < tournamentSize; j++) {
-                    let randomIndex = Math.floor(Math.random() * population.length);
-                    tournament.push(population[randomIndex]);
-                }
+            return tournament[0]
+        }
 
-                tournament.sort((a, b) => b.score - a.score);
-                selected.push(tournament[0]); // Best from the tournament
-            }
-
-            return selected;
+        function selection(pool){
+            let sortedPool = pool
+            let size = Math.floor(poolSize * nbParents);
+            sortedPool.sort(function(a, b){return b.score - a.score });
+            return sortedPool.slice(0, size).map(item => item.weights); 
         }
 
         function checkAndRestart() {
-            if (testSubjects.length === size) {
+            if (testSubjects.length === poolSize) {
                 console.log("All AIs are dead. Restarting...");
+
                 let bestScore = testSubjects.reduce((max, current) => {
                     return (current.score > max.score) ? current : max;
                 }, testSubjects[0]); 
 
-                let parents = tournamentSelection(testSubjects, 3); // Tournament size 3
-                console.log(parents)
-                testSubjects = []
-                // Generate new test subjects using crossover and mutation
-                let tmp = [];
-                for (let i = 0; i < size; i += 2) {
-                    let parent1 = parents[i];
-                    let parent2 = parents[i + 1] || parents[0]; 
-                    let child1 = mutate(crossover(parent1.weights, parent2.weights));
-                    tmp.push(child1);
-       
-                }
+                let newTestSubjects = selection(testSubjects)
 
-                let newTestSubjects = tmp.slice(0, size); // Keep population size constant
-                // console.log(newTestSubjects)
+                while(newTestSubjects.length < poolSize){
+                    let parent1 = tournamentSelection(testSubjects);
+                    let parent2 = tournamentSelection(testSubjects);
+                    let child = mutate(avg(parent1.weights, parent2.weights))
+                    newTestSubjects.push(child)
+                }
+                testSubjects = []
 
                 document.getElementById("test").innerText = "Best player " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
-
-                // if(bestScore.score !== 0){
-                    start(newTestSubjects);
-                // }else{
-                //     start();
-                // }
+                start(newTestSubjects);
             }
         }
 
@@ -645,7 +617,7 @@
         }
 
         function start(weights){
-            for(let i = 0; i < size; i++){
+            for(let i = 0; i < poolSize; i++){
                 if(weights === undefined){
                     const app = new Controller(new Model(i), new View(i)); 
                     app.setView();
