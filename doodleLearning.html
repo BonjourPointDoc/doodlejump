@@ -179,6 +179,877 @@
         var height = 256;
         var platformCount = 15;
 
+        // Initialiser un réseau de neurones feedforward
+        class NeuralNetwork {
+            constructor(inputSize, hiddenSizes, outputSize, base) {
+                this.inputSize = inputSize;
+                this.hiddenSizes = hiddenSizes;
+                this.outputSize = outputSize;
+                // Initialisation des poids et biais
+                this.weights = []; 
+                this.biases = [];
+
+                if(base !== undefined){
+                    console.log("Matrice moyenne de l'ancienne")
+                    this.weights = base.weights
+                    //this.biases = base.bias
+                }else{
+                    console.log("Matrice générée aléatoirement")
+                    // Poids entre l'entrée et la première couche cachée
+                    this.weights.push(NeuralNetwork.randomMatrix(this.inputSize, this.hiddenSizes[0]));  
+
+                    // Poids entre les couches cachées
+                    for (let i = 0; i < this.hiddenSizes.length - 1; i++) {
+                        this.weights.push(NeuralNetwork.randomMatrix(this.hiddenSizes[i], this.hiddenSizes[i + 1]));
+                    }
+                    // Poids entre la dernière couche cachée et la sortie
+                    this.weights.push(NeuralNetwork.randomMatrix(this.hiddenSizes[this.hiddenSizes.length - 1], this.outputSize)); 
+                }
+                this.setupBiais();
+                
+            }
+
+            setupBiais(){
+                this.biases.push(Array(this.hiddenSizes[0]).fill(0).map(() => Math.random() * 0.2 - 0.1));
+                for (let i = 0; i < this.hiddenSizes.length - 1; i++) {
+                    this.biases.push(Array(this.hiddenSizes[i + 1]).fill(0).map(() => Math.random() * 0.2 - 0.1));
+                }
+                this.biases.push(Array(this.outputSize).fill(0).map(() => Math.random() * 0.2 - 0.1));
+            }
+
+            // Fonction d'activation (Sigmoïde)
+            static sigmoid(x) {
+                return 1 / (1 + Math.exp(-x));
+            }
+
+            // Multiplier deux matrices
+            static matrixMultiply(a, b) {
+                const result = [];
+                for (let i = 0; i < a.length; i++) {
+                    result[i] = [];
+                    for (let j = 0; j < b[0].length; j++) {
+                        let sum = 0;
+                        for (let k = 0; k < b.length; k++) {
+                            sum += a[i][k] * b[k][j];
+                        }
+                        result[i][j] = sum;
+                    }
+                }
+                return result;
+            }
+
+            // Ajouter un biais à un vecteur ou une matrice
+            static addBias(matrix, bias) {
+                let res = []
+                for(let i = 0; i < matrix.length; i++){
+                    res.push(matrix[i]+bias[i])
+                }
+                return res
+            }
+
+            // Générer une matrice aléatoire
+            static randomMatrix(rows, cols) {
+                const matrix = [];
+                for (let i = 0; i < rows; i++) {
+                    matrix[i] = [];
+                    for (let j = 0; j < cols; j++) {
+                        matrix[i][j] = Math.random() * 2 - 1;
+                    }
+                }
+                return matrix;
+            }
+
+            // Feedforward
+            feedforward(inputVector) {
+                if (inputVector.length !== this.inputSize) {
+                    throw new Error(`La taille de l'entrée (${inputVector.length}) ne correspond pas à la taille d'entrée attendue (${this.inputSize}).`);
+                }
+
+                let activations = [inputVector];
+                for (let i = 0; i < this.weights.length; i++) {
+                    
+                    let weightedSum = NeuralNetwork.matrixMultiply([activations[i]], this.weights[i]).flat(); // Produit matriciel
+                    
+                    weightedSum = NeuralNetwork.addBias(weightedSum, this.biases[i]); // Ajout des biais
+                    
+                    const activation = weightedSum.map(NeuralNetwork.sigmoid); // Activation via sigmoïde
+                    
+                    activations.push(activation);
+                }
+
+                return activations[activations.length - 1]; // Dernière couche (sortie)
+            }
+        }
+
+        class Platform{
+            constructor(x, y, score){
+                let ez =  [1, 1, 1, 1, 2, 2];
+                let mid = [1, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3];
+                let hard = [2, 2, 2, 3, 3, 3, 3, 3];
+
+                this.width = 18;
+                this.height = 6;
+                this.x = x
+                this.y = y
+       
+                this.type;
+                this.display = true;
+                this.direction = 1;
+
+                if (score >= 5000) 
+                    this.type = 3;
+                else if (score >= 2000 && score < 5000) 
+                    this.type = hard[Math.floor( Math.random() * hard.length )]
+                else if (score >= 1000 && score < 2000) 
+                    this.type = mid[Math.floor( Math.random() * mid.length )]
+                else if (score >= 100 && score < 1000) 
+                    this.type = ez[Math.floor( Math.random() * ez.length )]
+                else 
+                    this.type = 1;
+            }
+
+            moveHorizontaly(fps){
+                if(this.type === 2){
+                    let vx = 100;
+                    if (this.x < 0 || this.x + this.width > 160) 
+                        this.direction *= -1;
+				    this.x += this.direction * vx/fps;
+                }
+            }
+
+            collider(position){
+                if((this.x < position.x+5 && position.x+5< this.x+this.width) || (this.x < position.x+16 && position.x+16 < this.x+this.width))
+                    if(this.y < position.y+21 && position.y+21 < this.y+this.height){
+                        return true
+                    }
+                return false
+            }
+            
+           
+        }
+
+        class Model {
+            static GRAVITY    = 5;
+            static JUMP_FORCE = 200;
+            static SPEED      = 68;
+            static width = 160;
+            static height = 256;
+      
+            constructor(index, weights) {
+                this._direction = 0;                
+                this._gravitySpeed = 0;
+                this.isDead = false;
+                this.score = 0
+                this.index = index
+                this._position = {x: 70, y:200};
+                this.ai = new NeuralNetwork(6, [8, 5], 3, weights);
+                this.input = [0.5, 0.8, 0.2, 0.9, 0.1, 0.4];
+                this.cmp_inactivity = 0;
+
+
+                this.platforms = [];
+                this.platforms.push(new Platform(this._position.x, this._position.y + 20, this.score))
+                let lvl_height = height / platformCount;
+                for (let i = 0; i < platformCount; i++) {
+                    let highest = this.platforms.at(-1).y
+                    let x = Math.random() * (width - 55);
+                    let y = highest - lvl_height - 17 ; 
+                    this.platforms.push(new Platform(x,y, this.score));
+                }
+            }
+
+            get position() { return this._position; }
+            get direction() { return this._direction; }
+            set direction(value) { return this._direction = value; }
+            
+            BindDisplay(callback) {
+                this.b_Display = callback;
+            }
+
+            distance(platform){
+                let a = (platform.x - this._position.x)/width
+                let b = (platform.y - this._position.y)/height
+                return Math.sqrt(a*a + b*b)
+            }
+
+            AllDistance(platforms){
+                let res = []
+                for(let i of platforms){
+                    res.push(this.distance(i))
+                }
+                    
+                res = res.sort((a,b) => a > b)
+                return res
+            }
+
+            Move(fps) {
+                this._gravitySpeed += Model.GRAVITY;
+                this._position.y += this._gravitySpeed / fps;
+                
+                if(this._position.x < -9)
+                    this._position.x = width;
+                else if(this._position.x > width)
+                    this._position.x = 0;
+                else{
+                    this._position.x += this._direction * Model.SPEED / fps;
+                }
+
+                if(this._position.y > 256){
+                    this.died()
+                }
+                let oldScore = this.score;
+                if (this.collidePlatform(fps) ) {
+                    this._Jump();
+                }
+
+                if(this._position.y <= height/2 && !this.isDead){
+                    this.scrollUp(this._position);
+                }
+                
+                if(oldScore == this.score)
+                    this.cmp_inactivity++
+                if(this.cmp_inactivity >= 1000){
+                    this.died()
+                }
+
+                this.platforms = this.platforms.filter(e => e.display)
+                this.b_Display(this._position, this.platforms, this.isDead, this.ai.weights, this.score);
+            }
+
+            died(){ 
+                if(!this.isDead)
+                    testSubjects.push({weights: this.ai.weights, bias: this.ai.biases, score: this.score})
+                this.isDead = true
+            }
+            
+            scrollUp() {
+                const offset = height/2 - this._position.y
+                this._position.y = height/2
+                this.platforms.forEach((p) => { p.y += offset });
+
+                this.platforms = this.platforms.filter((p) => p.y < height)
+                let lvl_height = height / platformCount;
+                while (this.platforms.length < platformCount) {
+                    let highest = this.platforms.at(-1).y
+                    let x = Math.random() * (width - 55);
+                    let y = highest - lvl_height - 17 ; 
+                    this.platforms.push(new Platform(x,y, this.score));
+                }
+                if(offset > 0){
+                    this.score++;
+                    this.cmp_inactivity = 0
+                }
+
+                if (this.score == 5000) {
+                    platformCount--;
+                }else if (this.score == 2000){
+                    platformCount--;
+                }else if (this.score == 1000 ){
+                    platformCount--;
+                }else if (this.score == 500){
+                    platformCount--;
+                }
+            }
+
+            collidePlatform(fps){
+                for(let p of this.platforms){
+                    p.moveHorizontaly(fps)
+                    if(p.collider(this._position)){
+                        if(p.type === 3)
+                            p.display = false;
+                        return true
+                    }
+                }       
+                return false
+            }
+
+            AIplay(){
+                let dist = this.AllDistance(this.platforms)
+                this.input[0] = dist[0];
+                this.input[1] = dist[1];
+                this.input[2] = dist[2];
+                this.input[3] = dist[3];
+                this.input[4] = this._position.x;
+                this.input[5] = this._position.y;
+                let res = this.indexOfMax(this.ai.feedforward(this.input))
+                //console.log("res :", res);
+                switch(res){
+                    case 1:
+                        this._direction = 0
+                        break
+                    case 2:
+                        this._direction = 1
+                        break
+                    case 0:
+                        this._direction = -1
+                        break
+                }
+            }
+
+            indexOfMax(arr) {
+                return arr.reduce((maxIndex, elem, i, arr) => 
+                    elem > arr[maxIndex] ? i : maxIndex, 0);
+            }
+
+            _Jump() {
+                this._gravitySpeed = -Model.JUMP_FORCE;
+            }
+        }
+
+
+        class View {
+            constructor(index) {
+                this.index = index
+                this._canvas = document.getElementById('doodle_jump' + this.index)
+                this.ctx     = this._canvas.getContext('2d')
+                this._hold_right = false
+                this._hold_left = false
+
+                this.Events()
+            }
+
+            async loadTextures(){
+                this.left = await this.getImage("./img/left.png")
+                this.right = await this.getImage("./img/right.png")
+                this.bg = await this.getImage("./img/bg.png")
+                this.props = await this.getImage("./img/game-tiles.png")
+            }
+
+            getImage(path){
+                return new Promise((resolve, reject) => {
+                    const img = new Image()
+                    
+                    img.src = path
+                    img.onload = () => { resolve(img) }
+                    img.onerror = e => { reject(e) }
+                })
+            }
+
+            BindSetDirection(callback) {
+                this.b_SetDirection = callback;
+            }
+
+            BindGetDirection(callback) {
+                this.b_GetDirection = callback;
+            }
+
+            Events() {
+                document.addEventListener('keydown', (evt) => {         
+                    if (evt.key == 'ArrowLeft' || evt.key == 'ArrowRight') {
+                        switch (evt.key) {
+                            case 'ArrowLeft': // Move left.
+                                this._hold_left = true;
+                                this.b_SetDirection(-1);
+                                break;
+                            case 'ArrowRight': // Move right.
+                                this._hold_right = true;
+                                this.b_SetDirection(1);
+                                break;
+                        }
+                    }
+                });
+
+                document.addEventListener('keyup', (evt) => {
+                    this.lastDirection = this.b_GetDirection()
+                    switch (evt.key) {
+                        case 'ArrowLeft': // Move left.
+                            if (!this._hold_right) {
+                                this.b_SetDirection(0);
+                            }
+                            this._hold_left = false;
+                            break;
+                        case 'ArrowRight': // Move right.
+                            if (!this._hold_left) {
+                                this.b_SetDirection(0);
+                            }
+                            this._hold_right = false;
+                            break;
+                    }
+                });
+            }
+
+            Display(position, platforms, isDead, weights, score) {
+                let x = position.x;
+                let y = position.y;
+
+                //Display Background
+                if(this.bg)
+                    this.DisplayBG()
+
+                //Display plateforme
+                if(this.props && platforms != undefined){
+                    for(let p of platforms){
+                        if(p.display)
+                            this.DisplayPlatform(p)
+                    }
+                }
+                //Display Player
+                if(this.right)
+                    this.DisplayPlayer(position)
+
+                if(isDead)
+                    this.displayDeathScreen();
+
+
+                document.getElementById('score' + this.index).innerHTML = "Score : " + score
+            }
+
+            DisplayBG(){
+                this.ctx.drawImage(this.bg, 0, 0)
+            }
+
+            DisplayPlayer(position){
+                let buff = this.b_GetDirection() ? this.b_GetDirection() : this.lastDirection;
+                if(buff > 0)
+                    this.ctx.drawImage(this.right, position.x, position.y, 21,20)
+                else
+                    this.ctx.drawImage(this.left, position.x, position.y, 21,20)
+            }
+
+            DisplayPlatform(p){
+                switch(p.type){
+                    case 2:
+                        this.ctx.drawImage(this.props, 1,19,57,15, p.x,p.y, p.width, p.height);
+                        break;
+                    case 3:
+                        this.ctx.drawImage(this.props, 1,55,57,15, p.x,p.y, p.width, p.height);
+                        break;
+                    default: 
+                        this.ctx.drawImage(this.props, 1,1,57,15, p.x,p.y, p.width, p.height);
+                        break;
+                }
+            }
+
+            displayDeathScreen(){
+                let DeathMsg = document.getElementById("DeathMsg" + this.index)
+                DeathMsg.style.display = "flex";
+            }
+        }
+
+        class Controller {
+            constructor(model, view) {
+                this._model = model;
+                this._view = view;
+                
+                this._startTime     = Date.now();
+                this._lag           = 0;
+                this._fps           = 60; // Frame rate.
+                this._frameDuration = 1000 / this._fps; // Avec 60 frame par seconde, la frame va durer 16.7ms.
+
+                this._model.BindDisplay(this.Display.bind(this));
+                this._view.BindSetDirection(this.SetDirection.bind(this));
+                this._view.BindGetDirection(this.GetDirection.bind(this));
+            }
+
+            async setView(){
+                await this._view.loadTextures();
+            }
+
+            Display(position, platforms, isDead, weights, score) {
+                this._view.Display(position, platforms, isDead, weights, score);
+            }
+
+            SetDirection(newDirection) {
+                this._model.direction = newDirection;
+            }
+
+            GetDirection() {
+                return this._model.direction;
+            }
+            
+            Update() {
+                /* Calcul du deltaTime */
+                let currentTime = Date.now();
+                let deltaTime   = currentTime - this._startTime; // La durée entre deux appels (entre 2 frames).
+                
+                this._lag += deltaTime;
+                this._startTime = currentTime;
+
+                /* Mettre à jour la logique si la variable _lag est supérieure ou égale à la durée d'une frame */
+                while (this._lag >= this._frameDuration) {
+                    /* Mise à jour de la logique */
+                    
+                    //Si c'est l'IA qui joue choisir la direction ici
+    
+                    this._model.AIplay();
+                    
+                    this._model.Move(this._fps);
+                    /* Réduire la variable _lag par la durée d'une frame */
+                    this._lag -= this._frameDuration;
+                }
+                if(!this._model.isDead){
+                    requestAnimationFrame(this.Update.bind(this)); // La fonction de rappel est généralement appelée 60 fois par seconde.
+                }
+                    
+            }
+        }
+
+
+        function mutate(child) { 
+            return child.map(mat => 
+                mat.map((row, i) => 
+                    row.map((value, j) => {
+                        return (Math.random() < 0.1 ? value + (Math.random() * 0.2 - 0.1) : value);
+                    })
+                )
+            );
+        }
+
+        function mutateBias(child) { 
+            return child.map(mat => 
+                mat.map((value, i) => {
+                    return (Math.random() < 0.1 ? value + (Math.random() * 0.2 - 0.1) : value);  
+                })
+            );
+        }
+
+        function avg(parent1, parent2) {
+            return parent1.map((mat, i) => 
+                mat.map((row, j) => 
+                    row.map((value, k) => {
+                        return ((value + parent2[i][j][k]) / 2)
+                    })
+                )
+            );
+        }
+
+        function avgBias(matrix1, matrix2) {
+            return matrix1.map((mat, i) => 
+                mat.map((value, j) => {
+                        return ((value + matrix2[i][j]) / 2)
+                })
+            );
+        }
+
+
+        function tournamentSelection(pool) {
+            let tournament = []
+            let indexes = []
+            let parents = []
+            let index1, index2
+            for(let i =0; i < 2; i++){
+                do{
+                    index1 = Math.floor( Math.random() * poolSize )
+                }while(indexes.includes(index1));
+                indexes.push(index1)
+
+                do{
+                    index2 = Math.floor( Math.random() * poolSize )
+                }while(indexes.includes(index2));
+                indexes.push(index2)
+
+                tournament.push(pool[index1])
+                tournament.push(pool[index2])
+                tournament.sort((a, b) => b.score - a.score);
+                parents.push(tournament[0])
+                tournament = []
+            }
+            return parents
+        }
+
+        function selection(pool){
+            let sortedPool = pool
+            let size = Math.floor(poolSize * nbParents);
+            sortedPool.sort(function(a, b){return b.score - a.score });
+            return sortedPool.slice(0, size).map((item) => { return { weights: item.weights, bias: item.bias}}); 
+        }
+
+        function checkAndRestart() {
+            if (testSubjects.length === poolSize) {
+                iteration ++;
+
+                console.log("All AIs are dead. Restarting...");
+
+                let bestScore = testSubjects.reduce((max, current) => {
+                    return (current.score > max.score) ? current : max;
+                }, testSubjects[0]);
+
+                let newTestSubjects = selection(testSubjects)
+
+                while(newTestSubjects.length < poolSize){
+                    let parents = tournamentSelection(testSubjects);
+                    let child = { weights : mutate(avg(parents[0].weights, parents[1].weights)), bias: mutateBias(avgBias(parents[0].bias, parents[1].bias)) }
+                    newTestSubjects.push(child)
+                }
+                testSubjects = []
+
+                document.getElementById("matrixResult").innerText = "Score of the best player in the last gen : " + bestScore.score + "\n" + JSON.stringify(bestScore.weights) + "\n";
+                
+                let oldBestScore = parseInt(document.getElementById('matrixBest').innerHTML);
+                
+                if(bestScore.score > oldBestScore)
+                    document.getElementById('matrixBest').innerHTML = bestScore.score;
+
+                scoreHistory.push(bestScore.score);
+                start(newTestSubjects);
+            }
+        }
+
+        // Ensure only one interval exists at a time
+        function startMonitoring() {
+            clearInterval(restartInterval);
+            restartInterval = setInterval(checkAndRestart, 1000);
+        }
+
+        function start(newPool){
+            for(let i = 0; i < poolSize; i++){
+                if(newPool === undefined){
+                    const app = new Controller(new Model(i), new View(i)); 
+                    app.setView();
+                    app.Update();
+                }else{
+                    const app = new Controller(new Model(i, newPool[i]), new View(i)); 
+                    app.setView();
+                    app.Update();
+                    document.getElementById("DeathMsg" + i).style.display = "none";
+                }
+               
+            }
+            startMonitoring();
+            updateChart(scoreHistory,iteration); 
+        }
+
+        function setChart(){
+            // Sélection du canvas
+            var ctx = document.getElementById('myChart').getContext('2d');
+
+            // Création du graphique
+            return new Chart(ctx, {
+                type: 'line', 
+                data: {
+                    labels: [], // Axe X : nombre d'itérations
+                    datasets: [{
+                        label: 'Score',
+                        data: [], // Axe Y : score
+                        borderColor: 'red', 
+                        backgroundColor: 'rgba(255, 0, 0, 0.2)',
+                        borderWidth: 2,
+                        pointRadius: 5, // Taille des points
+                        pointBackgroundColor: 'red'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Nombre d’itérations'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Score'
+                            },
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChart(arrScore, iteration){
+            myChart.data.labels = Array.from({ length: iteration + 1 }, (_, i) => i);
+            myChart.data.datasets[0].data = arrScore;
+            myChart.update();
+        }
+
+        var iteration = 0
+        var scoreHistory = []
+        var testSubjects = []
+        var poolSize = 30
+        var nbParents = 0.3
+        var myChart = setChart()
+        let restartInterval
+        start()
+          
+    </script>
+    
+</body>
+</html>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <title>Doodle Jump</title>
+</head>
+<body>
+    <h1 class="title">Learning</h1>
+    <hr class="separator"/>
+    <div class="game">
+        <div>
+            <canvas id="doodle_jump0" width="160" height="256"></canvas>
+            <p id="score0"></p> 
+            <h3 id="DeathMsg0" style="display:none">He is dead.</h3> 
+        </div>  
+        <div>
+            <canvas id="doodle_jump1" width="160" height="256"></canvas>
+            <p id="score1"></p> 
+            <h3 id="DeathMsg1" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump2" width="160" height="256"></canvas>
+            <p id="score2"></p> 
+            <h3 id="DeathMsg2" style="display:none">He is dead</h3> 
+        </div>
+        <div> 
+            <canvas id="doodle_jump3" width="160" height="256"></canvas>
+            <p id="score3"></p> 
+            <h3 id="DeathMsg3" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump4" width="160" height="256"></canvas>
+            <p id="score4"></p> 
+            <h3 id="DeathMsg4" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump5" width="160" height="256"></canvas>
+            <p id="score5"></p> 
+            <h3 id="DeathMsg5" style="display:none">He is dead.</h3> 
+        </div>  
+        <div>
+            <canvas id="doodle_jump6" width="160" height="256"></canvas>
+            <p id="score6"></p> 
+            <h3 id="DeathMsg6" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump7" width="160" height="256"></canvas>
+            <p id="score7"></p> 
+            <h3 id="DeathMsg7" style="display:none">He is dead</h3> 
+        </div>
+        <div> 
+            <canvas id="doodle_jump8" width="160" height="256"></canvas>
+            <p id="score8"></p> 
+            <h3 id="DeathMsg8" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump9" width="160" height="256"></canvas>
+            <p id="score9"></p> 
+            <h3 id="DeathMsg9" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump10" width="160" height="256"></canvas>
+            <p id="score10"></p> 
+            <h3 id="DeathMsg10" style="display:none">He is dead.</h3> 
+        </div>  
+        <div>
+            <canvas id="doodle_jump11" width="160" height="256"></canvas>
+            <p id="score11"></p> 
+            <h3 id="DeathMsg11" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump12" width="160" height="256"></canvas>
+            <p id="score12"></p> 
+            <h3 id="DeathMsg12" style="display:none">He is dead</h3> 
+        </div>
+        <div> 
+            <canvas id="doodle_jump13" width="160" height="256"></canvas>
+            <p id="score13"></p> 
+            <h3 id="DeathMsg13" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump14" width="160" height="256"></canvas>
+            <p id="score14"></p> 
+            <h3 id="DeathMsg14" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump15" width="160" height="256"></canvas>
+            <p id="score15"></p> 
+            <h3 id="DeathMsg15" style="display:none">He is dead.</h3> 
+        </div>  
+        <div>
+            <canvas id="doodle_jump16" width="160" height="256"></canvas>
+            <p id="score16"></p> 
+            <h3 id="DeathMsg16" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump17" width="160" height="256"></canvas>
+            <p id="score17"></p> 
+            <h3 id="DeathMsg17" style="display:none">He is dead</h3> 
+        </div>
+        <div> 
+            <canvas id="doodle_jump18" width="160" height="256"></canvas>
+            <p id="score18"></p> 
+            <h3 id="DeathMsg18" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump19" width="160" height="256"></canvas>
+            <p id="score19"></p> 
+            <h3 id="DeathMsg19" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump20" width="160" height="256"></canvas>
+            <p id="score20"></p> 
+            <h3 id="DeathMsg20" style="display:none">He is dead.</h3> 
+        </div>  
+        <div>
+            <canvas id="doodle_jump21" width="160" height="256"></canvas>
+            <p id="score21"></p> 
+            <h3 id="DeathMsg21" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump22" width="160" height="256"></canvas>
+            <p id="score22"></p> 
+            <h3 id="DeathMsg22" style="display:none">He is dead</h3> 
+        </div>
+        <div> 
+            <canvas id="doodle_jump23" width="160" height="256"></canvas>
+            <p id="score23"></p> 
+            <h3 id="DeathMsg23" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump24" width="160" height="256"></canvas>
+            <p id="score24"></p> 
+            <h3 id="DeathMsg24" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump25" width="160" height="256"></canvas>
+            <p id="score25"></p> 
+            <h3 id="DeathMsg25" style="display:none">He is dead.</h3> 
+        </div>  
+        <div>
+            <canvas id="doodle_jump26" width="160" height="256"></canvas>
+            <p id="score26"></p> 
+            <h3 id="DeathMsg26" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump27" width="160" height="256"></canvas>
+            <p id="score27"></p> 
+            <h3 id="DeathMsg27" style="display:none">He is dead</h3> 
+        </div>
+        <div> 
+            <canvas id="doodle_jump28" width="160" height="256"></canvas>
+            <p id="score28"></p> 
+            <h3 id="DeathMsg28" style="display:none">He is dead</h3> 
+        </div>
+        <div>
+            <canvas id="doodle_jump29" width="160" height="256"></canvas>
+            <p id="score29"></p> 
+            <h3 id="DeathMsg29" style="display:none">He is dead</h3> 
+        </div>
+    </div>
+    <hr class="separator"/>
+    <div>
+        <h2 class="title">Best Score Overall : <span id="matrixBest">0</span></h2>
+        <p id="matrixResult"></p>
+    </div>
+    <hr class="separator"/>
+    <div class="title">
+        <h2 class="title">Graph</h2>
+        <canvas id="myChart"></canvas>
+    </div>
+    
+
+    <script>
+        var width = 160;
+        var height = 256;
+        var platformCount = 15;
+
         // Fonction d'activation (Sigmoïde)
         function sigmoid(x) {
             return 1 / (1 + Math.exp(-x));
