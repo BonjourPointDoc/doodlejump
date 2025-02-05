@@ -14,11 +14,15 @@
             <p id="score" style="display: block;" ></p> 
         </div>  
         <div class="menu">
-            <h1 id="DedMsg" style="display:none">You died</h1> 
+            <div id="DedMsg" style="display:none" >
+                <img id="game_over_txt" src="./img/game_over.png" /> 
+                <p id="game_over"></p> 
+            </div>
             <button id="start" class="button" onclick="start(true)">Start</button>
             <button id="IA" class="button" onclick="start(false)">Use bot</button>
         </div>
     </div>
+    <div id="overlay" style="display:none"></div>
 
     <script>
         var score = 0;
@@ -448,6 +452,8 @@
                 if(isDead){
                     let dedMsg = document.getElementById('DedMsg')
                     dedMsg.style.display = "flex";
+                    document.getElementById('overlay').style.display = "flex";
+                    document.getElementById('game_over').innerHTML = "Score - " + score
                 }
                 
                 document.getElementById('score').innerHTML = "Score : " + score

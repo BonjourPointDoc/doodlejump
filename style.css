@@ -46,11 +46,35 @@ button:active {
 }
 
 #DedMsg{
-    position: absolute;
-    top: 45%;
-    left: 45%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    align-content: flex-start;
+    text-align: center;
     z-index: 99;
 }
+
+#game_over_txt{
+    height: 20em;
+}
+
+#game_over{
+    font-size: 30px;
+    font-family: Arial, Helvetica, sans-serif;
+}
+
+/* #overlay {
+    position:fixed;
+    z-index: 50;
+    top:0; 
+    left:0;
+    bottom:0; 
+    right:0;
+    background-color:rgba(0,0,0,0.3);   
+    backdrop-filter: blur(5px);
+} 
+*/
 
 body {
     font-family: Arial, Helvetica, sans-serif;
